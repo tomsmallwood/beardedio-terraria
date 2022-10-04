@@ -1,38 +1,39 @@
-FROM mono:slim
+# Stage 1
+FROM alpine:latest AS unzipper
 
-# Update and install needed utils
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y curl nuget vim zip && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk --no-cache add zip
 
-# fix for favorites.json error
-RUN favorites_path="/root/My Games/Terraria" && mkdir -p "$favorites_path" && echo "{}" > "$favorites_path/favorites.json"
-
-# Download and install Vanilla Server
-# ENV VANILLA_VERSION=%%VERSION%%
+ADD "https://terraria.org/api/download/pc-dedicated-server/terraria-server-1444.zip" terraria-server.zip
 
 RUN mkdir /tmp/terraria && \
+    cp terraria-server.zip /tmp/terraria && \
     cd /tmp/terraria && \
-    curl -sL %%DOWNLOAD_URL%% --output terraria-server.zip && \
     unzip -q terraria-server.zip && \
     mv */Linux /vanilla && \
-    mv */Windows/serverconfig.txt /vanilla/serverconfig-default.txt && \
-    rm -R /tmp/* && \
-    chmod +x /vanilla/TerrariaServer* && \
-    if [ ! -f /vanilla/TerrariaServer ]; then echo "Missing /vanilla/TerrariaServer"; exit 1; fi
+    chmod +x /vanilla/TerrariaServer*
 
+# Stage 2
+FROM mono:slim
+
+COPY --from=unzipper /vanilla /vanilla
 COPY run-vanilla.sh /vanilla/run.sh
 
-# Commit Hash Metadata
-ARG VCS_REF
-LABEL org.label-schema.vcs-ref=$VCS_REF \
-    org.label-schema.vcs-url="https://github.com/beardedio/terraria"
+# https://github.com/mono/docker/blob/main/6.12.0.182/slim/Dockerfile
+RUN apt-get purge -y --auto-remove ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm -rf /tmp/*
 
 # Allow for external data
 VOLUME ["/config"]
 
+# link Worlds folder to /config
+RUN mkdir -p /root/.local/share/Terraria && \
+    ln -sT /config /root/.local/share/Terraria/Worlds
+
 # Run the server
 WORKDIR /vanilla
 ENTRYPOINT ["./run.sh"]
+
+# CMD [ "ls", "-l", "/vanilla" ]
+
+# CMD ["/vanilla/TerrariaServer", "-x64", "-config", "/config/serverconfig.txt", "-banlist", "/config/banlist.txt", "-world" "/config/$world"]
