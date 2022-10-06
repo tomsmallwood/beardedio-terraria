@@ -31,8 +31,7 @@ RUN apt-get update && \
     mv */Linux /vanilla && \
     chmod +x /vanilla/TerrariaServer* && \
     apt-get purge -y --auto-remove zip && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm -rf /tmp/*
+    rm -rf /var/lib/apt/lists/* /tmp/*
 
 # Allow for external data
 VOLUME ["/config"]
