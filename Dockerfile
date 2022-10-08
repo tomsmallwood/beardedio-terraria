@@ -1,7 +1,7 @@
 # stage 1
-FROM debian:bullseye-slim
+FROM debian:bullseye-slim as builder
 
-ENV TERRARIA_SERVER terraria-server-1444
+ENV TERRARIA_SERVER terraria-server-1445
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gnupg dirmngr ca-certificates \
@@ -33,14 +33,24 @@ RUN apt-get update && \
     apt-get purge -y --auto-remove zip && \
     rm -rf /var/lib/apt/lists/* /tmp/*
 
-# Allow for external data
-VOLUME ["/config"]
+# Stage 2
+FROM debian:bullseye-slim as runner
 
-# link Worlds folder to /config
-RUN mkdir -p /root/.local/share/Terraria && \
-    ln -sT /config /root/.local/share/Terraria/Worlds
-
-# Run the server
 WORKDIR /vanilla
-COPY run-vanilla.sh /vanilla/run.sh
-ENTRYPOINT ["./run.sh"]
+
+# Run server as non-root
+USER 1000
+# copy vanilla server files from builder
+COPY --chown=1000 --chmod=400 --from=builder /vanilla /vanilla
+COPY --chown=1000 --chmod=500 --from=builder /vanilla/TerrariaServer* /vanilla
+# copy world config files
+COPY --chown=1000 --chmod=400 /config /config
+COPY --chown=1000 --chmod=600 /config/*.wld /root/.local/share/Terraria/Worlds
+COPY --chown=1000 --chmod=500 run-vanilla.sh /vanilla/run-vanilla.sh
+
+# add link to worlds folder in /config
+# RUN mkdir -p /root/.local/share/Terraria && \
+#     ln -sT /config /root/.local/share/Terraria/Worlds
+
+CMD ["./run-vanilla.sh"]
+# ENTRYPOINT ["./run-vanilla.sh"]
