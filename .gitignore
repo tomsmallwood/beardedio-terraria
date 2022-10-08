@@ -14,7 +14,7 @@ Thumbs.db
 .fuse_hidden*
 .idea
 .vagrant
-.vscode
+# .vscode
 .kdev4/
 *.kdev4
 *.bak
